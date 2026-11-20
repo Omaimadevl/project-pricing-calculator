@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حاسبة تسعير المشاريع</title>
+<style>
+/* ألوان الصفحة كمتغيرات: فاتح وداكن */
+:root{
+  --bg:#f4f6fb; --card:#ffffff; --text:#1c2333; --muted:#6b7488;
+  --line:#e2e6ef; --primary:#2563eb; --primary-text:#ffffff; --danger:#dc2626; --soft:#eef3ff;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1420; --card:#181f2e; --text:#e8ecf5; --muted:#9aa4ba;
+    --line:#2a3347; --primary:#4f8cff; --primary-text:#0b1220; --danger:#f87171; --soft:#1e2a45;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Segoe UI",Tahoma,"Noto Sans Arabic",Arial,sans-serif; line-height:1.6;
+}
+header{padding:20px 16px 8px; max-width:1100px; margin:auto}
+header h1{margin:0; font-size:1.5rem}
+header p{margin:4px 0 0; color:var(--muted); font-size:.95rem}
+main{
+  max-width:1100px; margin:auto; padding:12px 16px 40px;
+  display:grid; gap:16px; grid-template-columns:1fr;
+}
+@media (min-width:900px){ main{grid-template-columns:1.1fr 1fr; align-items:start} }
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px}
+.card h2{margin:0 0 12px; font-size:1.1rem}
+label{display:block; font-size:.85rem; color:var(--muted); margin-bottom:4px}
+input,select,textarea{
+  width:100%; padding:10px 12px; font:inherit; font-size:16px; /* 16px يمنع تكبير الشاشة في الجوال */
+  color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:10px;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--primary); outline-offset:1px}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.field{margin-bottom:10px}
+/* صف المهمة/التكلفة: بطاقة صغيرة تتكيف مع الجوال */
+.row{
+  display:grid; gap:8px; padding:10px; margin-bottom:10px;
+  background:var(--soft); border-radius:10px;
+  grid-template-columns:1fr 1fr;
+}
+.row .name{grid-column:1 / -1}
+.row .sum{display:flex; align-items:center; font-weight:600}
+.row button.del{justify-self:end}
+.btn{
+  font:inherit; cursor:pointer; border:0; border-radius:10px; padding:10px 14px;
+  background:var(--primary); color:var(--primary-text); font-weight:600;
+}
+.btn.ghost{background:transparent; color:var(--primary); border:1px dashed var(--primary); width:100%}
+.btn.del{background:transparent; color:var(--danger); padding:6px 10px}
+.actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+.actions .btn{flex:1; min-width:120px}
+.btn.alt{background:var(--soft); color:var(--text); border:1px solid var(--line)}
+
+/* عرض السعر */
+.quote h3{margin:0}
+.meta{color:var(--muted); font-size:.85rem; margin:2px 0 12px}
+.tablewrap{overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:.92rem; min-width:320px}
+th,td{padding:8px 6px; text-align:right; border-bottom:1px solid var(--line)}
+th{color:var(--muted); font-weight:600; font-size:.8rem}
+td.num,th.num{text-align:left; white-space:nowrap}
+.totals{margin-top:12px}
+.totals div{display:flex; justify-content:space-between; padding:5px 0}
+.totals .grand{
+  font-size:1.2rem; font-weight:700; border-top:2px solid var(--text);
+  margin-top:6px; padding-top:10px; color:var(--primary);
+}
+.note{margin-top:12px; font-size:.85rem; color:var(--muted); white-space:pre-wrap}
+.empty{color:var(--muted); text-align:center; padding:12px}
+
+/* عند الطباعة نُظهر عرض السعر فقط */
+@media print{
+  body{background:#fff; color:#000}
+  header,#form,.actions{display:none !important}
+  main{display:block; padding:0}
+  .card{border:0; padding:0}
+  :root{--text:#000; --muted:#444; --line:#bbb; --primary:#000}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>حاسبة تسعير المشاريع</h1>
+  <p>أدخل الساعات والتكاليف وسيظهر عرض السعر مباشرة.</p>
+</header>
+
+<main>
+  <!-- ========== نموذج الإدخال ========== -->
+  <section id="form" class="card">
+    <h2>بيانات المشروع</h2>
+    <div class="field"><label for="project">اسم المشروع</label>
+      <input id="project" placeholder="مثال: تصميم موقع تعريفي"></div>
+    <div class="grid2">
+      <div class="field"><label for="client">اسم العميل</label><input id="client"></div>
+      <div class="field"><label for="currency">العملة</label>
+        <select id="currency">
+          <option>ريال عماني</option><option>ريال سعودي</option><option>درهم إماراتي</option>
+          <option>دينار كويتي</option><option>جنيه مصري</option><option>دولار</option>
+        </select></div>
+    </div>
+
+    <h2>المهام (بالساعات)</h2>
+    <div id="tasks"></div>
+    <button class="btn ghost" id="addTask" type="button">+ إضافة مهمة</button>
+
+    <h2 style="margin-top:18px">تكاليف إضافية</h2>
+    <div id="costs"></div>
+    <button class="btn ghost" id="addCost" type="button">+ إضافة تكلفة</button>
+
+    <h2 style="margin-top:18px">النسب</h2>
+    <div class="grid2">
+      <div class="field"><label for="profit">هامش الربح %</label>
+        <input id="profit" type="number" inputmode="decimal" min="0" value="20"></div>
+      <div class="field"><label for="discount">الخصم %</label>
+        <input id="discount" type="number" inputmode="decimal" min="0" value="0"></div>
+      <div class="field"><label for="tax">الضريبة %</label>
+        <input id="tax" type="number" inputmode="decimal" min="0" value="5"></div>
+    </div>
+    <div class="field"><label for="notes">ملاحظات / شروط الدفع</label>
+      <textarea id="notes" rows="3">العرض ساري لمدة 14 يومًا من تاريخه.</textarea></div>
+  </section>
+
+  <!-- ========== عرض السعر ========== -->
+  <section class="card quote" id="quote">
+    <h2>عرض السعر</h2>
+    <div id="output"></div>
+    <div class="actions">
+      <button class="btn" id="print" type="button">طباعة / حفظ PDF</button>
+      <button class="btn alt" id="copy" type="button">نسخ النص</button>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===== دوال مساعدة ===== */
+const $ = (id) => document.getElementById(id);
+
+// تحويل النص لشكل آمن قبل وضعه في HTML
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// قراءة رقم من حقل (وإرجاع 0 إذا كان فارغًا)
+function num(v){ const n = parseFloat(v); return isFinite(n) && n > 0 ? n : 0; }
+// تنسيق الأرقام بخانتين عشريتين وأرقام لاتينية
+const fmt = (n) => new Intl.NumberFormat('ar-u-nu-latn', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n);
+
+/* ===== إضافة صفوف ===== */
+function addTask(name='', hours='', rate=''){
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML =
+    '<div class="name"><label>وصف المهمة</label><input class="t-name" placeholder="مثال: تصميم الواجهة"></div>' +
+    '<div><label>عدد الساعات</label><input class="t-hours" type="number" inputmode="decimal" min="0" step="0.5"></div>' +
+    '<div><label>سعر الساعة</label><input class="t-rate" type="number" inputmode="decimal" min="0"></div>' +
+    '<div class="sum">—</div>' +
+    '<button class="btn del" type="button">حذف</button>';
+  row.querySelector('.t-name').value = name;
+  row.querySelector('.t-hours').value = hours;
+  row.querySelector('.t-rate').value = rate;
+  $('tasks').appendChild(row);
+}
+function addCost(name='', amount=''){
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML =
+    '<div class="name"><label>البند</label><input class="c-name" placeholder="مثال: استضافة / دومين"></div>' +
+    '<div><label>المبلغ</label><input class="c-amount" type="number" inputmode="decimal" min="0"></div>' +
+    '<button class="btn del" type="button" style="align-self:end">حذف</button>';
+  row.querySelector('.c-name').value = name;
+  row.querySelector('.c-amount').value = amount;
+  $('costs').appendChild(row);
+}
+
+/* ===== الحساب وبناء عرض السعر ===== */
+function calculate(){
+  const cur = $('currency').value;
+
+  // المهام
+  const tasks = [];
+  document.querySelectorAll('#tasks .row').forEach(row => {
+    const name = row.querySelector('.t-name').value.trim();
+    const h = num(row.querySelector('.t-hours').value);
+    const r = num(row.querySelector('.t-rate').value);
+    const total = h * r;
+    row.querySelector('.sum').textContent = total ? fmt(total) + ' ' + cur : '—';
+    if (name || total) tasks.push({name: name || 'مهمة', h, r, total});
+  });
+
+  // التكاليف الإضافية
+  const costs = [];
+  document.querySelectorAll('#costs .row').forEach(row => {
+    const name = row.querySelector('.c-name').value.trim();
+    const amount = num(row.querySelector('.c-amount').value);
+    if (name || amount) costs.push({name: name || 'تكلفة', amount});
+  });
+
+  const labor = tasks.reduce((s, t) => s + t.total, 0);
+  const extras = costs.reduce((s, c) => s + c.amount, 0);
+  const subtotal = labor + extras;
+  const profit = subtotal * num($('profit').value) / 100;
+  const beforeDiscount = subtotal + profit;
+  const discount = beforeDiscount * Math.min(num($('discount').value), 100) / 100;
+  const taxable = beforeDiscount - discount;
+  const tax = taxable * num($('tax').value) / 100;
+  const grand = taxable + tax;
+  const hours = tasks.reduce((s, t) => s + t.h, 0);
+
+  return {cur, tasks, costs, labor, extras, subtotal, profit, discount, tax, grand, hours};
+}
+
+function render(){
+  const d = calculate();
+  const out = $('output');
+
+  if (!d.tasks.length && !d.costs.length){
+    out.innerHTML = '<div class="empty">أضف مهمة أو تكلفة لتظهر الأسعار هنا.</div>';
+    return;
+  }
+
+  const today = new Date().toLocaleDateString('ar', {year:'numeric', month:'long', day:'numeric', numberingSystem:'latn'});
+  let html = '<h3>' + esc($('project').value || 'مشروع بدون اسم') + '</h3>';
+  html += '<div class="meta">' + (($('client').value) ? 'العميل: ' + esc($('client').value) + ' · ' : '') + esc(today) + '</div>';
+
+  if (d.tasks.length){
+    html += '<div class="tablewrap"><table><tr><th>المهمة</th><th class="num">ساعات</th><th class="num">السعر/س</th><th class="num">المجموع</th></tr>';
+    d.tasks.forEach(t => {
+      html += '<tr><td>' + esc(t.name) + '</td><td class="num">' + t.h + '</td><td class="num">' + fmt(t.r) + '</td><td class="num">' + fmt(t.total) + '</td></tr>';
+    });
+    html += '</table></div>';
+  }
+  if (d.costs.length){
+    html += '<div class="tablewrap" style="margin-top:10px"><table><tr><th>تكاليف إضافية</th><th class="num">المبلغ</th></tr>';
+    d.costs.forEach(c => {
+      html += '<tr><td>' + esc(c.name) + '</td><td class="num">' + fmt(c.amount) + '</td></tr>';
+    });
+    html += '</table></div>';
+  }
+
+  const line = (label, val) => '<div><span>' + label + '</span><span>' + fmt(val) + ' ' + esc(d.cur) + '</span></div>';
+  html += '<div class="totals">' + line('إجمالي العمل (' + d.hours + ' ساعة)', d.labor);
+  if (d.extras) html += line('التكاليف الإضافية', d.extras);
+  if (d.profit) html += line('هامش الربح', d.profit);
+  if (d.discount) html += line('الخصم', -d.discount);
+  if (d.tax) html += line('الضريبة', d.tax);
+  html += '<div class="grand"><span>الإجمالي النهائي</span><span>' + fmt(d.grand) + ' ' + esc(d.cur) + '</span></div></div>';
+
+  if ($('notes').value.trim()) html += '<div class="note">' + esc($('notes').value.trim()) + '</div>';
+  out.innerHTML = html;
+}
+
+/* ===== الأحداث ===== */
+// أي تغيير في أي حقل يعيد الحساب فورًا
+document.addEventListener('input', render);
+$('currency').addEventListener('change', render);
+
+$('addTask').onclick = () => { addTask(); };
+$('addCost').onclick = () => { addCost(); };
+
+// حذف صف (تفويض الحدث: نستمع على الحاوية)
+['tasks','costs'].forEach(id => {
+  $(id).addEventListener('click', e => {
+    if (e.target.classList.contains('del')){ e.target.closest('.row').remove(); render(); }
+  });
+});
+
+$('print').onclick = () => window.print();
+
+$('copy').onclick = async () => {
+  const d = calculate();
+  let t = ($('project').value || 'عرض سعر') + '\n';
+  d.tasks.forEach(x => t += '- ' + x.name + ': ' + x.h + ' ساعة × ' + fmt(x.r) + ' = ' + fmt(x.total) + '\n');
+  d.costs.forEach(x => t += '- ' + x.name + ': ' + fmt(x.amount) + '\n');
+  t += 'الإجمالي النهائي: ' + fmt(d.grand) + ' ' + d.cur;
+  try {
+    await navigator.clipboard.writeText(t);
+    $('copy').textContent = 'تم النسخ ✓';
+  } catch (err) {
+    $('copy').textContent = 'تعذر النسخ';
+  }
+  setTimeout(() => { $('copy').textContent = 'نسخ النص'; }, 1800);
+};
+
+/* ===== بداية التشغيل: صف مثال لكل قسم ===== */
+addTask('تصميم الواجهة', 10, 15);
+addTask('البرمجة', 20, 20);
+addCost('الاستضافة والدومين', 30);
+render();
+</script>
+</body>
+</html>
